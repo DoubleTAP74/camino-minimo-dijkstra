@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camino mínimo · Algoritmo de Dijkstra</title>
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+<header class="cabecera">
+  <div class="marca">
+    <div class="logo">D</div>
+    <div>
+      <p class="curso">Matemática Computacional · 1AMA0726 · UPC</p>
+      <h1>Problema del camino mínimo <span>Algoritmo de Dijkstra</span></h1>
+    </div>
+  </div>
+  <div class="contadores">
+    <div class="dato"><span id="datoNodos">—</span><small>vértices</small></div>
+    <div class="dato"><span id="datoAristas">—</span><small>aristas</small></div>
+    <div class="dato destacado"><span id="datoDistancia">—</span><small>distancia mínima</small></div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ====================== PANEL IZQUIERDO: CONTROLES ====================== -->
+  <aside class="panel">
+
+    <section class="tarjeta">
+      <h2><span class="num">1</span> Crear el grafo</h2>
+      <label class="campo">
+        Número de vértices <em>n</em> (7 a 16)
+        <input type="number" id="entradaN" min="7" max="16" value="8">
+      </label>
+      <div class="botonera">
+        <button id="btnAleatorio" class="primario">Generar aleatorio</button>
+        <button id="btnManual">Crear vacío (manual)</button>
+      </div>
+      <button id="btnEjemplo" class="enlace">Cargar ejemplo de la Lectura 5</button>
+      <p class="ayuda">El grafo es <strong>dirigido</strong> y <strong>sin ciclos</strong>. En el modo
+      aleatorio eso se garantiza por construcción; en el modo manual se verifica cada arista.</p>
+    </section>
+
+    <section class="tarjeta">
+      <h2><span class="num">2</span> Aristas (modo manual)</h2>
+      <div class="fila-arista">
+        <label>Desde<select id="selDesde"></select></label>
+        <label>Hacia<select id="selHacia"></select></label>
+        <label>Peso<input type="number" id="entradaPeso" min="1" value="1"></label>
+      </div>
+      <div class="botonera">
+        <button id="btnAgregar">Agregar arista</button>
+        <button id="btnQuitar">Quitar arista</button>
+      </div>
+      <p id="avisoArista" class="aviso"></p>
+    </section>
+
+    <section class="tarjeta">
+      <h2><span class="num">3</span> Ejecutar Dijkstra</h2>
+      <div class="fila-arista">
+        <label>Origen<select id="selOrigen"></select></label>
+        <label>Destino<select id="selDestino"></select></label>
+      </div>
+      <p class="ayuda" id="ayudaAlcanzables">Los destinos marcados con • son alcanzables desde el origen.</p>
+      <button id="btnIniciar" class="primario ancho">Iniciar</button>
+      <div class="botonera navegacion">
+        <button id="btnAnterior">◀ Anterior</button>
+        <button id="btnSiguiente">Siguiente ▶</button>
+      </div>
+      <div class="botonera">
+        <button id="btnTodo">Ejecutar todo</button>
+        <button id="btnReiniciar">Reiniciar</button>
+      </div>
+    </section>
+
+  </aside>
+
+  <!-- ====================== CENTRO: GRAFO ====================== -->
+  <section class="lienzo-zona">
+    <div class="lienzo-cabecera">
+      <h2>Grafo dirigido y ponderado</h2>
+      <ul class="leyenda">
+        <li><i class="c-origen"></i>Origen</li>
+        <li><i class="c-destino"></i>Destino</li>
+        <li><i class="c-actual"></i>Actual</li>
+        <li><i class="c-visitado"></i>Visitado</li>
+        <li><i class="c-pendiente"></i>Pendiente</li>
+        <li><i class="c-revisada"></i>Arista revisada</li>
+        <li><i class="c-ruta"></i>Camino mínimo</li>
+      </ul>
+    </div>
+    <canvas id="lienzo"></canvas>
+    <p class="nota-color">Cada arista toma el color de su vértice de origen, para poder seguirla cuando varias se cruzan.</p>
+    <p class="pie-lienzo">
+      <span id="contadorPaso">Genere un grafo para comenzar</span>
+      <span class="progreso"><i id="barraProgreso"></i></span>
+    </p>
+  </section>
+
+</main>
+
+<!-- ====================== ABAJO: TABLA, DECISIONES Y MATRIZ ====================== -->
+<section class="inferior">
+
+  <div class="tarjeta">
+    <h2>Etiquetas de los vértices <small>[d, V]<sup>n</sup></small></h2>
+    <div class="tabla-scroll">
+      <table id="tablaEtiquetas">
+        <thead><tr><th>Vértice</th><th>Etiqueta</th><th>d</th><th>Procedencia</th><th>Iteración</th><th>Estado</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Decisiones de la iteración</h2>
+    <div id="registro" class="registro">Genere un grafo y pulse «Iniciar» para ver el procedimiento paso a paso.</div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Matriz de adyacencia</h2>
+    <div class="tabla-scroll">
+      <table id="tablaMatriz"><thead></thead><tbody></tbody></table>
+    </div>
+    <p class="ayuda">La celda (i, j) contiene el peso de la arista i → j. Un guion indica que esa arista no existe.</p>
+  </div>
+
+</section>
+
+<footer>
+  Avance al 50 % · Caso 2: Problema del camino mínimo · Desarrollado en HTML, CSS y JavaScript sin librerías externas
+</footer>
+
+<script src="algoritmo.js"></script>
+<script src="interfaz.js"></script>
+</body>
+</html>

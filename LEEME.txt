@@ -1,0 +1,35 @@
+PROBLEMA DEL CAMINO MINIMO - ALGORITMO DE DIJKSTRA
+Caso 2 - Proyecto de Matematica Computacional (1AMA0726) - UPC
+Avance al 50 %
+
+COMO EJECUTAR
+-------------
+No requiere instalar nada. Hay dos formas:
+
+1. Abrir el archivo "index.html" con doble clic. Se abre en el navegador
+   que tenga instalado (Chrome, Edge, Firefox).
+
+2. Entrar al enlace publicado:
+   https://doubletap74.github.io/camino-minimo-dijkstra/
+
+ARCHIVOS
+--------
+index.html     estructura de la pagina y de los paneles
+estilos.css    presentacion: colores, tablas y disposicion
+algoritmo.js   grafo, generacion del DAG y algoritmo de Dijkstra
+interfaz.js    dibujo en el canvas, tablas y eventos de los botones
+
+No se utiliza ninguna libreria externa. Todo el codigo es del grupo.
+
+COMO USARLO
+-----------
+1. Indicar el numero de vertices n (entre 7 y 16) y pulsar
+   "Generar aleatorio", o "Crear vacio (manual)" para armarlo a mano.
+   Tambien hay un boton "Cargar ejemplo de la Lectura 5".
+2. En modo manual, agregar las aristas indicando desde, hacia y peso.
+   El programa rechaza lazos, pesos no positivos, aristas repetidas y
+   cualquier arista que formaria un ciclo.
+3. Elegir el vertice origen y el vertice destino. Los destinos marcados
+   con un punto son los alcanzables desde el origen elegido.
+4. Pulsar "Iniciar" y avanzar con "Siguiente" y "Anterior", o con las
+   flechas del teclado. "Ejecutar todo" salta al resultado final.

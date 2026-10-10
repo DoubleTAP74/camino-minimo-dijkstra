@@ -1,0 +1,39 @@
+# Publica el sitio estatico en GitHub Pages.
+# Necesario cuando en Settings > Pages la fuente esta puesta en "GitHub Actions".
+name: Desplegar en GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Pages
+        uses: actions/configure-pages@v5
+
+      - name: Empaquetar el sitio
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Publicar
+        id: despliegue
+        uses: actions/deploy-pages@v4
