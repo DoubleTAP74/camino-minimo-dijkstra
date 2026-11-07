@@ -10,7 +10,12 @@ let pasos = [];
 let indicePaso = -1;
 let origen = null;
 let destino = null;
-let posiciones = [];        // posiciones[i] = { x, y } del vertice i
+let posiciones = [];        // posiciones[i] = { x, y, fijo } del vertice i
+
+// edicion por clic sobre el lienzo
+let verticeElegido = null;  // primer vertice de la arista que se esta creando
+let aristaPendiente = null; // [u, v] esperando que se escriba el peso
+let arrastre = null;        // { i, movido } mientras se arrastra un vertice
 
 const $ = function (id) { return document.getElementById(id); };
 
@@ -125,6 +130,12 @@ function calcularPosiciones(g) {
       pos[col[k]] = { x: x, y: y };
     }
   }
+
+  // Un vertice que el usuario arrastro se queda donde lo dejo. Si se
+  // recolocaran todos en cada cambio, el grafo saltaria mientras se edita.
+  for (let i = 0; i < g.n; i++) {
+    if (posiciones[i] && posiciones[i].fijo) pos[i] = posiciones[i];
+  }
   return pos;
 }
 
@@ -164,12 +175,12 @@ function dibujar() {
 
   const paso = indicePaso >= 0 ? pasos[indicePaso] : null;
 
-  // aristas que forman el camino minimo final, para pintarlas en rojo
+  /* Aristas que pertenecen a algun camino minimo, para pintarlas en rojo.
+     Se resaltan TODAS, no solo las de un camino: cuando hay empates el
+     enunciado pide mostrar cada una de las rutas de longitud minima. */
   const enRuta = new Set();
-  if (paso !== null && paso.final && paso.camino.length > 1) {
-    for (let i = 0; i + 1 < paso.camino.length; i++) {
-      enRuta.add(paso.camino[i] + "-" + paso.camino[i + 1]);
-    }
+  if (paso !== null && paso.final && paso.aristasMinimas) {
+    for (const a of paso.aristasMinimas) enRuta.add(a[0] + "-" + a[1]);
   }
 
   // aristas que se acaban de revisar en esta iteracion
@@ -202,6 +213,7 @@ function dibujar() {
 
     if (paso !== null && paso.visitados[i]) relleno = colorClaro(i);
     if (paso !== null && paso.actual === i && !paso.final) { relleno = "#fde3c4"; borde = "#e07b1a"; grosorBorde = 3.4; }
+    if (verticeElegido === i) { relleno = "#fde3c4"; borde = "#e07b1a"; grosorBorde = 3.6; }
     if (i === origen)  { borde = "#1a8a4a"; grosorBorde = 3.6; }
     if (i === destino) { borde = "#c0392b"; grosorBorde = 3.6; }
 
@@ -380,6 +392,13 @@ function actualizarContadores() {
   }
   $("datoDistancia").textContent = dist;
 
+  let cuantos = "—";
+  if (indicePaso >= 0) {
+    const p = pasos[indicePaso];
+    if (p.final && p.cantidadCaminos !== undefined && p.cantidadCaminos > 0) cuantos = p.cantidadCaminos;
+  }
+  $("datoCaminos").textContent = cuantos;
+
   if (pasos.length > 0 && indicePaso >= 0) {
     $("contadorPaso").textContent = "Paso " + (indicePaso + 1) + " de " + pasos.length;
     $("barraProgreso").style.width = ((indicePaso + 1) / pasos.length * 100) + "%";
@@ -417,8 +436,6 @@ function llenarSelector(sel, marcarAlcanzables) {
 }
 
 function refrescarSelectores() {
-  llenarSelector($("selDesde"), false);
-  llenarSelector($("selHacia"), false);
   llenarSelector($("selOrigen"), false);
   origen = grafo === null ? null : Number($("selOrigen").value);
   llenarSelector($("selDestino"), true);
@@ -476,14 +493,15 @@ function leerN() {
 function cargarGrafo(g) {
   grafo = g;
   pasos = []; indicePaso = -1;
+  posiciones = [];                      // ninguna posicion fijada a mano
+  verticeElegido = null; aristaPendiente = null;
+  if (typeof flotante !== "undefined" && flotante) flotante.style.display = "none";
   posiciones = calcularPosiciones(grafo);
 
   // Elegimos un origen y un destino por defecto que den una demostración útil,
   // en vez de dejar siempre A y la última letra: en un grafo acíclico ese par
   // muchas veces no tiene camino.
   const par = mejorParOrigenDestino(grafo);
-  llenarSelector($("selDesde"), false);
-  llenarSelector($("selHacia"), false);
   llenarSelector($("selOrigen"), false);
   $("selOrigen").value = par.origen;
   origen = par.origen;
@@ -524,35 +542,152 @@ $("btnEjemplo").onclick = function () {
   avisar("Ejemplo de la Lectura 5, orientado como grafo dirigido acíclico. De A a H la distancia mínima es 8.", "ok");
 };
 
-$("btnAgregar").onclick = function () {
-  if (grafo === null) { avisar("Primero cree un grafo.", "error"); return; }
-  const u = Number($("selDesde").value);
-  const v = Number($("selHacia").value);
-  const peso = parseInt($("entradaPeso").value, 10);
+/* ----------------------------------------------------------------------------
+   Edicion del grafo con el raton
 
-  const error = agregarArista(grafo, u, v, peso);
-  if (error !== null) { avisar(error, "error"); return; }
+   Sustituye a los tres desplegables que habia antes. El docente observo en la
+   primera revision que ingresar los datos asi resultaba poco dinamico.
 
-  avisar("Arista " + nombre(u) + " → " + nombre(v) + " con peso " + peso + " agregada.", "ok");
+   - clic en un vertice y luego en otro  -> crea la arista, pidiendo el peso
+   - clic sobre una arista               -> la borra
+   - arrastrar un vertice                -> lo mueve de sitio
+   ---------------------------------------------------------------------------- */
+
+const flotante = $("flotante");
+
+// convierte la posicion del raton en coordenadas del lienzo
+function puntoDelRaton(ev) {
+  const r = lienzo.getBoundingClientRect();
+  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+}
+
+function verticeEn(p) {
+  for (let i = 0; i < grafo.n; i++) {
+    if (Math.hypot(posiciones[i].x - p.x, posiciones[i].y - p.y) <= RADIO + 3) return i;
+  }
+  return null;
+}
+
+/* Busca la arista que pasa por el punto. Para cada una se proyecta el punto
+   sobre el segmento y se mide la distancia; si es menor que unos pocos
+   pixeles, el clic cae sobre esa arista. */
+function aristaEn(p) {
+  for (let u = 0; u < grafo.n; u++) {
+    for (const v in grafo.ady[u]) {
+      const w = Number(v), a = posiciones[u], b = posiciones[w];
+      const dx = b.x - a.x, dy = b.y - a.y, largo2 = dx * dx + dy * dy;
+      if (largo2 === 0) continue;
+      let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / largo2;
+      t = Math.max(0, Math.min(1, t));
+      if (Math.hypot(a.x + t * dx - p.x, a.y + t * dy - p.y) < 7) return [u, w];
+    }
+  }
+  return null;
+}
+
+// al tocar el grafo se descarta la ejecucion anterior: el grafo cambio
+function trasEditar() {
   pasos = []; indicePaso = -1;
   posiciones = calcularPosiciones(grafo);
   refrescarSelectores();
-  actualizarMatriz(); actualizarTablaEtiquetas(); mostrarRegistro(); actualizarContadores(); dibujar();
-};
+  actualizarMatriz(); actualizarTablaEtiquetas(); mostrarRegistro();
+  actualizarContadores(); dibujar();
+}
 
-$("btnQuitar").onclick = function () {
-  if (grafo === null) { avisar("Primero cree un grafo.", "error"); return; }
-  const u = Number($("selDesde").value);
-  const v = Number($("selHacia").value);
+lienzo.addEventListener("mousedown", function (ev) {
+  if (grafo === null) return;
+  const i = verticeEn(puntoDelRaton(ev));
+  if (i !== null) arrastre = { i: i, movido: false };
+});
 
-  const error = quitarArista(grafo, u, v);
-  if (error !== null) { avisar(error, "error"); return; }
+lienzo.addEventListener("mousemove", function (ev) {
+  if (arrastre === null) return;
+  const p = puntoDelRaton(ev);
+  posiciones[arrastre.i] = { x: p.x, y: p.y, fijo: true };
+  arrastre.movido = true;
+  dibujar();
+});
 
-  avisar("Arista " + nombre(u) + " → " + nombre(v) + " eliminada.", "ok");
-  pasos = []; indicePaso = -1;
+window.addEventListener("mouseup", function () { arrastre = null; });
+
+lienzo.addEventListener("click", function (ev) {
+  if (grafo === null) return;
+  if (arrastre !== null && arrastre.movido) return;   // fue un arrastre, no un clic
+
+  const p = puntoDelRaton(ev);
+  const i = verticeEn(p);
+
+  if (i === null) {
+    const ar = aristaEn(p);
+    if (ar !== null) {
+      quitarArista(grafo, ar[0], ar[1]);
+      avisar("Arista " + nombre(ar[0]) + " → " + nombre(ar[1]) + " eliminada.", "ok");
+      trasEditar();
+      return;
+    }
+    verticeElegido = null; flotante.style.display = "none";
+    avisar("");
+    dibujar();
+    return;
+  }
+
+  if (verticeElegido === null) {
+    verticeElegido = i;
+    avisar("Origen " + nombre(i) + " elegido. Ahora haga clic en el vértice de destino.");
+    dibujar();
+    return;
+  }
+  if (verticeElegido === i) {
+    verticeElegido = null;
+    avisar("Selección cancelada.");
+    dibujar();
+    return;
+  }
+
+  aristaPendiente = [verticeElegido, i];
+  verticeElegido = null;
+  dibujar();
+
+  $("flotanteTexto").textContent = nombre(aristaPendiente[0]) + " → " + nombre(aristaPendiente[1]);
+  const a = posiciones[aristaPendiente[0]], b = posiciones[aristaPendiente[1]];
+  const izq = Math.min(Math.max((a.x + b.x) / 2 - 95, 4), lienzo.clientWidth - 240);
+  flotante.style.left = izq + "px";
+  flotante.style.top = ((a.y + b.y) / 2 - 20) + "px";
+  flotante.style.display = "block";
+  $("flotantePeso").value = 1;
+  $("flotantePeso").focus();
+  $("flotantePeso").select();
+});
+
+function confirmarArista() {
+  if (aristaPendiente === null) return;
+  const u = aristaPendiente[0], v = aristaPendiente[1];
+  const error = agregarArista(grafo, u, v, parseInt($("flotantePeso").value, 10));
+  if (error !== null) avisar(error, "error");
+  else avisar("Arista " + nombre(u) + " → " + nombre(v) + " agregada con peso " + $("flotantePeso").value + ".", "ok");
+  aristaPendiente = null;
+  flotante.style.display = "none";
+  trasEditar();
+}
+
+$("flotanteOk").onclick = confirmarArista;
+$("flotantePeso").addEventListener("keydown", function (ev) {
+  if (ev.key === "Enter") { ev.preventDefault(); confirmarArista(); }
+  if (ev.key === "Escape") {
+    aristaPendiente = null; flotante.style.display = "none";
+    avisar("Cancelado.");
+  }
+});
+
+// vuelve a acomodar por niveles los vertices que se hayan movido a mano
+$("btnReordenar").onclick = function () {
+  if (grafo === null) return;
+  for (let i = 0; i < posiciones.length; i++) {
+    if (posiciones[i]) posiciones[i].fijo = false;
+  }
   posiciones = calcularPosiciones(grafo);
-  refrescarSelectores();
-  actualizarMatriz(); actualizarTablaEtiquetas(); mostrarRegistro(); actualizarContadores(); dibujar();
+  avisar("Vértices reacomodados por niveles.", "ok");
+  dibujar();
 };
 
 $("selOrigen").onchange = function () {

@@ -20,6 +20,7 @@
     <div class="dato"><span id="datoNodos">—</span><small>vértices</small></div>
     <div class="dato"><span id="datoAristas">—</span><small>aristas</small></div>
     <div class="dato destacado"><span id="datoDistancia">—</span><small>distancia mínima</small></div>
+    <div class="dato destacado"><span id="datoCaminos">—</span><small>caminos mínimos</small></div>
   </div>
 </header>
 
@@ -45,15 +46,14 @@
 
     <section class="tarjeta">
       <h2><span class="num">2</span> Aristas (modo manual)</h2>
-      <div class="fila-arista">
-        <label>Desde<select id="selDesde"></select></label>
-        <label>Hacia<select id="selHacia"></select></label>
-        <label>Peso<input type="number" id="entradaPeso" min="1" value="1"></label>
-      </div>
-      <div class="botonera">
-        <button id="btnAgregar">Agregar arista</button>
-        <button id="btnQuitar">Quitar arista</button>
-      </div>
+      <ul class="instrucciones">
+        <li><b>Crear:</b> clic en un vértice y luego en otro. Escriba el peso y pulse Enter.</li>
+        <li><b>Borrar:</b> clic sobre la arista.</li>
+        <li><b>Mover:</b> arrastre un vértice.</li>
+      </ul>
+      <button id="btnReordenar" class="ancho">Reordenar vértices</button>
+      <p class="ayuda">Los vértices que mueva se quedan donde los deje. Este botón los vuelve
+      a acomodar por niveles.</p>
       <p id="avisoArista" class="aviso"></p>
     </section>
 
@@ -88,10 +88,17 @@
         <li><i class="c-visitado"></i>Visitado</li>
         <li><i class="c-pendiente"></i>Pendiente</li>
         <li><i class="c-revisada"></i>Arista revisada</li>
-        <li><i class="c-ruta"></i>Camino mínimo</li>
+        <li><i class="c-ruta"></i>Caminos mínimos</li>
       </ul>
     </div>
-    <canvas id="lienzo"></canvas>
+    <div class="envoltura-lienzo">
+      <canvas id="lienzo"></canvas>
+      <div class="flotante" id="flotante">
+        <b id="flotanteTexto"></b>
+        peso <input type="number" id="flotantePeso" min="1" value="1">
+        <button id="flotanteOk" class="primario">Agregar</button>
+      </div>
+    </div>
     <p class="nota-color">Cada arista toma el color de su vértice de origen, para poder seguirla cuando varias se cruzan.</p>
     <p class="pie-lienzo">
       <span id="contadorPaso">Genere un grafo para comenzar</span>

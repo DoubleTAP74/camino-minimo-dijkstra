@@ -108,38 +108,83 @@ function quitarArista(g, u, v) {
    Despues, para que el grafo no quede partido en pedazos, le damos a cada
    vertice (menos al primero) al menos una flecha que entra desde alguno anterior. */
 function generarAleatorio(n, densidad, pesoMin, pesoMax) {
-  // La densidad baja cuando n crece. Si se deja fija, con n = 16 salen mas de
-  // cincuenta aristas y el dibujo se vuelve ilegible por mucho que lo ordenemos.
-  densidad = densidad || Math.min(0.38, 2.4 / n);
   pesoMin = pesoMin || 1;
   pesoMax = pesoMax || 9;
 
-  const g = crearGrafo(n);
+  /* GENERACION POR NIVELES
+     ----------------------
+     Repartimos los vertices en niveles y solo creamos aristas que van de un
+     nivel a otro posterior. De ahi salen tres cosas a la vez:
 
-  // orden oculto, barajado con Fisher-Yates
-  const orden = [];
-  for (let i = 0; i < n; i++) orden.push(i);
-  for (let i = n - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = orden[i]; orden[i] = orden[j]; orden[j] = tmp;
-  }
+     1. No hay ciclos. Como toda arista avanza de nivel, es imposible volver al
+        punto de partida. Esto es la definicion de orden topologico: un grafo
+        dirigido es aciclico si y solo si se pueden numerar sus vertices de modo
+        que toda arista vaya de un numero menor a uno mayor.
+
+     2. Las letras van en orden. Nombramos A, B, C... recorriendo los niveles de
+        izquierda a derecha, asi que nunca aparece una arista como F -> C, que se
+        leeria como si el recorrido retrocediera.
+
+     3. El dibujo queda ordenado. Como cada vertice recibe al menos una arista
+        del nivel inmediatamente anterior, su nivel coincide exactamente con la
+        columna en la que se dibuja. Las letras avanzan de izquierda a derecha.
+
+     Antes sorteabamos un orden oculto que las letras no seguian, y por eso el
+     grafo se veia desordenado aunque por dentro fuera correcto. */
 
   const pesoAlAzar = function () {
     return pesoMin + Math.floor(Math.random() * (pesoMax - pesoMin + 1));
   };
 
-  // cada vertice recibe al menos una arista entrante desde uno anterior
-  for (let pos = 1; pos < n; pos++) {
-    const v = orden[pos];
-    const u = orden[Math.floor(Math.random() * pos)];
-    g.ady[u][v] = pesoAlAzar();
+  // cuantos niveles: entre 3 y 6, segun el tamano del grafo
+  const niveles = Math.max(3, Math.min(6, Math.round(Math.sqrt(n)) + 1));
+
+  // cuantos vertices por nivel: uno al inicio, uno al final y el resto repartido
+  const tamano = new Array(niveles).fill(0);
+  tamano[0] = 1;
+  tamano[niveles - 1] = 1;
+  let restantes = n - 2;
+  for (let k = 1; k < niveles - 1; k++) {
+    const faltan = niveles - 1 - k;
+    const cuantos = Math.max(1, Math.round(restantes / faltan));
+    tamano[k] = Math.min(cuantos, restantes - (faltan - 1));
+    restantes -= tamano[k];
+  }
+  tamano[niveles - 1] += restantes;   // lo que sobre va al ultimo nivel
+
+  // a que nivel pertenece cada letra, asignando A, B, C... nivel por nivel
+  const nivelDe = [];
+  const porNivel = [];
+  let siguiente = 0;
+  for (let k = 0; k < niveles; k++) {
+    porNivel.push([]);
+    for (let i = 0; i < tamano[k]; i++) {
+      nivelDe[siguiente] = k;
+      porNivel[k].push(siguiente);
+      siguiente++;
+    }
   }
 
-  // aristas extra, siempre hacia adelante en el orden
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      const u = orden[i], v = orden[j];
-      if (!(v in g.ady[u]) && Math.random() < densidad) {
+  const g = crearGrafo(n);
+
+  // cada vertice recibe al menos una arista del nivel inmediatamente anterior
+  for (let k = 1; k < niveles; k++) {
+    for (const v of porNivel[k]) {
+      const previos = porNivel[k - 1];
+      const u = previos[Math.floor(Math.random() * previos.length)];
+      g.ady[u][v] = pesoAlAzar();
+    }
+  }
+
+  /* Aristas extra, siempre hacia adelante y saltando a lo sumo dos niveles.
+     Si se permite cualquier salto aparecen aristas como A -> P que cruzan todo
+     el ancho del dibujo y lo vuelven ilegible; ademas convierten el camino
+     minimo en un atajo trivial y el algoritmo deja de tener algo que mostrar. */
+  densidad = densidad || Math.min(0.55, 3.4 / n);
+  for (let u = 0; u < n; u++) {
+    for (let v = 0; v < n; v++) {
+      const salto = nivelDe[v] - nivelDe[u];
+      if (salto >= 1 && salto <= 2 && !(v in g.ady[u]) && Math.random() < densidad) {
         g.ady[u][v] = pesoAlAzar();
       }
     }
@@ -211,11 +256,17 @@ function alcanzablesDesde(g, origen) {
 function dijkstraPasos(g, origen, destino) {
   const n = g.n;
 
-  // etiquetas[v] = { d: acumulado, pred: indice o null, iter: numero } o null
+  /* etiquetas[v] = { d, pred, iter, preds } o null.
+
+     'preds' es la lista de TODOS los vertices desde los que se llega a v con
+     la distancia minima. La Lectura 5 dice que un vertice puede quedar con dos
+     etiquetas del mismo acumulado y que eso significa que hay dos soluciones;
+     esta lista es esa regla escrita en codigo. 'pred' guarda el primero de
+     ellos, que es el que se muestra en la tabla. */
   const etiquetas = [];
   const visitados = [];
   for (let i = 0; i < n; i++) { etiquetas.push(null); visitados.push(false); }
-  etiquetas[origen] = { d: 0, pred: null, iter: 0 };
+  etiquetas[origen] = { d: 0, pred: null, iter: 0, preds: [] };
 
   const pasos = [];
 
@@ -224,7 +275,7 @@ function dijkstraPasos(g, origen, destino) {
     pasos.push({
       titulo: titulo,
       detalle: detalle,
-      etiquetas: etiquetas.map(function (e) { return e === null ? null : { d: e.d, pred: e.pred, iter: e.iter }; }),
+      etiquetas: etiquetas.map(function (e) { return e === null ? null : { d: e.d, pred: e.pred, iter: e.iter, preds: e.preds.slice() }; }),
       visitados: visitados.slice(),
       actual: (actual === undefined ? null : actual),
       relajadas: relajadas || [],
@@ -283,13 +334,13 @@ function dijkstraPasos(g, origen, destino) {
       }
 
       if (etiquetas[v] === null) {
-        etiquetas[v] = { d: nueva, pred: u, iter: iteracion };
+        etiquetas[v] = { d: nueva, pred: u, iter: iteracion, preds: [u] };
         detalle.push("  " + nombre(u) + " → " + nombre(v) + ": " + etiquetas[u].d + " + " + peso + " = " + nueva +
                      "  →  " + nombre(v) + " recibe la etiqueta [" + nueva + ", " + nombre(u) + "]" + iteracion);
         relajadas.push([u, v, true]);
       } else if (nueva < etiquetas[v].d) {
         const antes = etiquetas[v].d;
-        etiquetas[v] = { d: nueva, pred: u, iter: iteracion };
+        etiquetas[v] = { d: nueva, pred: u, iter: iteracion, preds: [u] };
         detalle.push("  " + nombre(u) + " → " + nombre(v) + ": " + etiquetas[u].d + " + " + peso + " = " + nueva +
                      " < " + antes + "  →  se reemplaza por [" + nueva + ", " + nombre(u) + "]" + iteracion);
         relajadas.push([u, v, true]);
@@ -298,6 +349,7 @@ function dijkstraPasos(g, origen, destino) {
         // empate significa que hay otro camino de la misma longitud minima.
         detalle.push("  " + nombre(u) + " → " + nombre(v) + ": " + etiquetas[u].d + " + " + peso + " = " + nueva +
                      " = " + etiquetas[v].d + "  →  empate. Se conserva la etiqueta actual, pero esto indica otro camino mínimo hacia " + nombre(v) + ".");
+        etiquetas[v].preds.push(u);   // otro predecesor con la misma distancia
         empates.push([u, v]);
         relajadas.push([u, v, false]);
       } else {
@@ -310,21 +362,87 @@ function dijkstraPasos(g, origen, destino) {
     foto("Iteración " + iteracion + ": vértice " + nombre(u), detalle, u, relajadas, empates);
   }
 
-  // Paso 7: reconstruimos la ruta hacia el destino siguiendo los predecesores
+  /* ------------------------------------------------------------------
+     Paso 7: todos los caminos minimos
+
+     La Lectura 5 lo plantea asi: si al terminar un vertice quedo con dos
+     etiquetas del mismo acumulado, hay dos soluciones. Como ya guardamos la
+     lista de predecesores empatados, esas aristas forman por si solas un
+     subgrafo, el "grafo de caminos minimos", y todo lo demas sale de ahi.
+     ------------------------------------------------------------------ */
+
   const resumen = [];
   let camino = [];
+  let caminos = [];
+  let cantidadCaminos = 0;
+  let aristasMinimas = [];
 
   if (etiquetas[destino] !== null) {
-    let x = destino;
-    while (x !== null) {
-      camino.push(x);
-      x = etiquetas[x].pred;
+
+    /* Cuantos caminos hay, sin enumerarlos.
+       Si llamamos caminos(v) a la cantidad de caminos minimos del origen a v,
+       entonces caminos(origen) = 1 y caminos(v) es la suma de caminos(u) sobre
+       cada predecesor minimo u de v. Recorriendo los vertices en orden de
+       distancia creciente, cada uno se calcula cuando sus predecesores ya estan
+       resueltos, porque todos ellos estan mas cerca del origen. */
+    const cuantos = new Array(n).fill(0);
+    cuantos[origen] = 1;
+
+    const porDistancia = [];
+    for (let v = 0; v < n; v++) if (etiquetas[v] !== null) porDistancia.push(v);
+    porDistancia.sort(function (a, b) { return etiquetas[a].d - etiquetas[b].d; });
+
+    for (const v of porDistancia) {
+      if (v === origen) continue;
+      let suma = 0;
+      for (const u of etiquetas[v].preds) suma += cuantos[u];
+      cuantos[v] = suma;
     }
-    camino.reverse();
+    cantidadCaminos = cuantos[destino];
+
+    /* Que aristas forman parte de algun camino minimo.
+       Se retrocede desde el destino por la lista de predecesores; toda arista
+       que se recorra asi pertenece a algun camino minimo. */
+    const vistos = new Array(n).fill(false);
+    const pila = [destino];
+    vistos[destino] = true;
+    while (pila.length > 0) {
+      const v = pila.pop();
+      for (const u of etiquetas[v].preds) {
+        aristasMinimas.push([u, v]);
+        if (!vistos[u]) { vistos[u] = true; pila.push(u); }
+      }
+    }
+
+    /* La secuencia de vertices de cada camino, retrocediendo por los
+       predecesores. Se limita la lista porque la cantidad puede crecer mucho;
+       el numero total ya quedo calculado arriba de forma exacta. */
+    const TOPE = 20;
+    (function reconstruir(v, cola) {
+      if (caminos.length >= TOPE) return;
+      if (v === origen) { caminos.push([origen].concat(cola)); return; }
+      for (const u of etiquetas[v].preds) reconstruir(u, [v].concat(cola));
+    })(destino, []);
+
+    camino = caminos.length > 0 ? caminos[0] : [];
 
     resumen.push("Distancia mínima de " + nombre(origen) + " a " + nombre(destino) + ": " + etiquetas[destino].d + ".");
-    resumen.push("Camino: " + camino.map(nombre).join(" → "));
-    resumen.push("Se obtiene siguiendo los vértices de procedencia desde " + nombre(destino) + " hasta " + nombre(origen) + " y leyendo la secuencia al revés.");
+    resumen.push("Cantidad de caminos mínimos: " + cantidadCaminos + ".");
+
+    if (cantidadCaminos === 1) {
+      resumen.push("Camino: " + camino.map(nombre).join(" → "));
+    } else {
+      const mostrados = Math.min(caminos.length, TOPE);
+      resumen.push(cantidadCaminos <= TOPE
+        ? "Los " + cantidadCaminos + " caminos son:"
+        : "Se muestran " + mostrados + " de los " + cantidadCaminos + ":");
+      for (let i = 0; i < mostrados; i++) {
+        resumen.push("  " + (i + 1) + ") " + caminos[i].map(nombre).join(" → "));
+      }
+    }
+
+    resumen.push("Cada camino se obtiene retrocediendo por los vértices de procedencia desde " +
+                 nombre(destino) + " hasta " + nombre(origen) + " y leyendo la secuencia al revés.");
 
     const sinEtiqueta = [];
     for (let i = 0; i < n; i++) if (etiquetas[i] === null) sinEtiqueta.push(nombre(i));
@@ -339,13 +457,16 @@ function dijkstraPasos(g, origen, destino) {
   pasos.push({
     titulo: "Resultado",
     detalle: resumen,
-    etiquetas: etiquetas.map(function (e) { return e === null ? null : { d: e.d, pred: e.pred, iter: e.iter }; }),
+    etiquetas: etiquetas.map(function (e) { return e === null ? null : { d: e.d, pred: e.pred, iter: e.iter, preds: e.preds.slice() }; }),
     visitados: visitados.slice(),
     actual: destino,
     relajadas: [],
     empates: [],
     final: true,
-    camino: camino
+    camino: camino,
+    caminos: caminos,
+    cantidadCaminos: cantidadCaminos,
+    aristasMinimas: aristasMinimas
   });
 
   return pasos;

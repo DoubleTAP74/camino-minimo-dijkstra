@@ -26,10 +26,18 @@ COMO USARLO
 1. Indicar el numero de vertices n (entre 7 y 16) y pulsar
    "Generar aleatorio", o "Crear vacio (manual)" para armarlo a mano.
    Tambien hay un boton "Cargar ejemplo de la Lectura 5".
-2. En modo manual, agregar las aristas indicando desde, hacia y peso.
+2. En modo manual el grafo se arma con el raton, directamente sobre el dibujo:
+     - crear una arista: clic en un vertice y luego en otro. Aparece una
+       casilla para el peso; Enter confirma y Escape cancela.
+     - borrar una arista: clic sobre ella.
+     - mover un vertice: arrastrarlo. El boton "Reordenar vertices" los
+       vuelve a acomodar por niveles.
    El programa rechaza lazos, pesos no positivos, aristas repetidas y
    cualquier arista que formaria un ciclo.
 3. Elegir el vertice origen y el vertice destino. Los destinos marcados
    con un punto son los alcanzables desde el origen elegido.
 4. Pulsar "Iniciar" y avanzar con "Siguiente" y "Anterior", o con las
    flechas del teclado. "Ejecutar todo" salta al resultado final.
+5. Al terminar, el programa informa la distancia minima, cuantos caminos
+   minimos existen y la secuencia de vertices de cada uno, y los resalta
+   todos a la vez sobre el grafo.
