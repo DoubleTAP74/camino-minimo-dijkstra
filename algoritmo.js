@@ -18,6 +18,7 @@
    ============================================================================ */
 
 const N_MIN = 7;    // el enunciado pide n entre 7 y 16
+const GRADO_MAX = 3;   // maximo de aristas que entran y que salen de un vertice, lo pidio el docente
 const N_MAX = 16;
 const INF = Infinity;
 
@@ -107,86 +108,120 @@ function quitarArista(g, u, v) {
 
    Despues, para que el grafo no quede partido en pedazos, le damos a cada
    vertice (menos al primero) al menos una flecha que entra desde alguno anterior. */
+
+/* Reparte los n vertices en niveles.
+
+   Los topes del docente condicionan los tamanos. Si de cada vertice salen
+   como mucho 3 aristas, un nivel no puede tener mas de 3 veces los vertices
+   del anterior; y como del ultimo nivel solo hay un vertice (el punto de
+   llegada) y a el le entran 3 aristas como mucho, el nivel que lo precede no
+   puede tener mas de 3 vertices. Por eso se llenan los niveles de izquierda a
+   derecha y, si no cuadra, se prueba con un nivel mas. */
+function repartirPorNiveles(n) {
+  for (let niveles = Math.max(4, Math.min(6, Math.round(Math.sqrt(n)) + 1)); niveles <= 9; niveles++) {
+    const tam = new Array(niveles).fill(0);
+    tam[0] = 1;                 // un unico vertice de partida
+    tam[niveles - 1] = 1;       // un unico vertice de llegada
+    let resto = n - 2;
+    let cabe = true;
+
+    for (let k = 1; k <= niveles - 2; k++) {
+      const siguientes = niveles - 2 - k;                 // niveles intermedios que faltan
+      const tope = (k === 1 || k === niveles - 2) ? GRADO_MAX : 4;
+      const maximo = Math.min(tope, GRADO_MAX * tam[k - 1], resto - siguientes);
+      if (maximo < 1) { cabe = false; break; }
+      tam[k] = maximo;
+      resto -= maximo;
+    }
+    if (cabe && resto === 0) return tam;
+  }
+  return null;
+}
+
 function generarAleatorio(n, densidad, pesoMin, pesoMax) {
   pesoMin = pesoMin || 1;
   pesoMax = pesoMax || 9;
 
-  /* GENERACION POR NIVELES
-     ----------------------
-     Repartimos los vertices en niveles y solo creamos aristas que van de un
-     nivel a otro posterior. De ahi salen tres cosas a la vez:
+  /* GENERACION POR NIVELES CON GRADO ACOTADO
+     ----------------------------------------
+     Los vertices se reparten en niveles y solo se crean aristas que avanzan de
+     nivel. De ahi salen el orden topologico y la ausencia de ciclos: un grafo
+     dirigido es aciclico si y solo si se pueden numerar sus vertices de modo
+     que toda arista vaya de un numero menor a uno mayor.
 
-     1. No hay ciclos. Como toda arista avanza de nivel, es imposible volver al
-        punto de partida. Esto es la definicion de orden topologico: un grafo
-        dirigido es aciclico si y solo si se pueden numerar sus vertices de modo
-        que toda arista vaya de un numero menor a uno mayor.
+     Sobre esa base se respetan las dos condiciones que pidio el docente en la
+     revision:
 
-     2. Las letras van en orden. Nombramos A, B, C... recorriendo los niveles de
-        izquierda a derecha, asi que nunca aparece una arista como F -> C, que se
-        leeria como si el recorrido retrocediera.
+     1. Ningun vertice tiene mas de 3 aristas entrantes ni mas de 3 salientes.
+        Su argumento fue que salir de un punto por cinco caminos distintos no
+        se parece a una red real.
 
-     3. El dibujo queda ordenado. Como cada vertice recibe al menos una arista
-        del nivel inmediatamente anterior, su nivel coincide exactamente con la
-        columna en la que se dibuja. Las letras avanzan de izquierda a derecha.
+     2. De todo vertice sale al menos una arista, salvo del ultimo, que es el
+        punto de llegada. Asi no quedan callejones sin salida.
 
-     Antes sorteabamos un orden oculto que las letras no seguian, y por eso el
-     grafo se veia desordenado aunque por dentro fuera correcto. */
+     Y por construccion cada vertice recibe al menos una arista del nivel
+     anterior, de modo que su nivel coincide con la columna en que se dibuja y
+     el primer vertice alcanza a todos los demas. */
+
+  const tam = repartirPorNiveles(n);
+  const niveles = tam.length;
+
+  const nivelDe = [], porNivel = [];
+  let siguiente = 0;
+  for (let k = 0; k < niveles; k++) {
+    porNivel.push([]);
+    for (let i = 0; i < tam[k]; i++) { nivelDe[siguiente] = k; porNivel[k].push(siguiente); siguiente++; }
+  }
+
+  const g = crearGrafo(n);
+  const entran = new Array(n).fill(0);
+  const salen = new Array(n).fill(0);
 
   const pesoAlAzar = function () {
     return pesoMin + Math.floor(Math.random() * (pesoMax - pesoMin + 1));
   };
 
-  // cuantos niveles: entre 3 y 6, segun el tamano del grafo
-  const niveles = Math.max(3, Math.min(6, Math.round(Math.sqrt(n)) + 1));
-
-  // cuantos vertices por nivel: uno al inicio, uno al final y el resto repartido
-  const tamano = new Array(niveles).fill(0);
-  tamano[0] = 1;
-  tamano[niveles - 1] = 1;
-  let restantes = n - 2;
-  for (let k = 1; k < niveles - 1; k++) {
-    const faltan = niveles - 1 - k;
-    const cuantos = Math.max(1, Math.round(restantes / faltan));
-    tamano[k] = Math.min(cuantos, restantes - (faltan - 1));
-    restantes -= tamano[k];
+  function puedeUnir(u, v) {
+    return salen[u] < GRADO_MAX && entran[v] < GRADO_MAX && !(v in g.ady[u]);
   }
-  tamano[niveles - 1] += restantes;   // lo que sobre va al ultimo nivel
-
-  // a que nivel pertenece cada letra, asignando A, B, C... nivel por nivel
-  const nivelDe = [];
-  const porNivel = [];
-  let siguiente = 0;
-  for (let k = 0; k < niveles; k++) {
-    porNivel.push([]);
-    for (let i = 0; i < tamano[k]; i++) {
-      nivelDe[siguiente] = k;
-      porNivel[k].push(siguiente);
-      siguiente++;
+  function unir(u, v) {
+    g.ady[u][v] = pesoAlAzar(); salen[u]++; entran[v]++;
+  }
+  function barajar(a) {
+    const c = a.slice();
+    for (let i = c.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = c[i]; c[i] = c[j]; c[j] = t;
     }
+    return c;
   }
 
-  const g = crearGrafo(n);
-
-  // cada vertice recibe al menos una arista del nivel inmediatamente anterior
+  // 1. cada vertice recibe una arista del nivel inmediatamente anterior
   for (let k = 1; k < niveles; k++) {
     for (const v of porNivel[k]) {
-      const previos = porNivel[k - 1];
-      const u = previos[Math.floor(Math.random() * previos.length)];
-      g.ady[u][v] = pesoAlAzar();
+      for (const u of barajar(porNivel[k - 1])) {
+        if (puedeUnir(u, v)) { unir(u, v); break; }
+      }
     }
   }
 
-  /* Aristas extra, siempre hacia adelante y saltando a lo sumo dos niveles.
-     Si se permite cualquier salto aparecen aristas como A -> P que cruzan todo
-     el ancho del dibujo y lo vuelven ilegible; ademas convierten el camino
-     minimo en un atajo trivial y el algoritmo deja de tener algo que mostrar. */
-  densidad = densidad || Math.min(0.55, 3.4 / n);
-  for (let u = 0; u < n; u++) {
-    for (let v = 0; v < n; v++) {
-      const salto = nivelDe[v] - nivelDe[u];
-      if (salto >= 1 && salto <= 2 && !(v in g.ady[u]) && Math.random() < densidad) {
-        g.ady[u][v] = pesoAlAzar();
+  // 2. de todo vertice sale al menos una arista, menos del ultimo
+  for (let k = niveles - 2; k >= 0; k--) {
+    for (const u of porNivel[k]) {
+      if (salen[u] > 0) continue;
+      const candidatos = barajar(porNivel[k + 1].concat(k + 2 < niveles ? porNivel[k + 2] : []));
+      for (const v of candidatos) {
+        if (puedeUnir(u, v)) { unir(u, v); break; }
       }
+    }
+  }
+
+  // 3. aristas extra, hacia adelante y saltando a lo sumo dos niveles
+  densidad = densidad || Math.min(0.55, 3.4 / n);
+  for (const u of barajar(Array.from({ length: n }, function (_, i) { return i; }))) {
+    for (const v of barajar(Array.from({ length: n }, function (_, i) { return i; }))) {
+      const salto = nivelDe[v] - nivelDe[u];
+      if (salto >= 1 && salto <= 2 && puedeUnir(u, v) && Math.random() < densidad) unir(u, v);
     }
   }
   return g;

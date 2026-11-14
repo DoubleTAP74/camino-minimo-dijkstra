@@ -1,6 +1,6 @@
 PROBLEMA DEL CAMINO MINIMO - ALGORITMO DE DIJKSTRA
 Caso 2 - Proyecto de Matematica Computacional (1AMA0726) - UPC
-Avance al 50 %
+Grupo 3 - Seccion SW15401
 
 COMO EJECUTAR
 -------------
@@ -14,18 +14,36 @@ No requiere instalar nada. Hay dos formas:
 
 ARCHIVOS
 --------
-index.html     estructura de la pagina y de los paneles
-estilos.css    presentacion: colores, tablas y disposicion
-algoritmo.js   grafo, generacion del DAG y algoritmo de Dijkstra
-interfaz.js    dibujo en el canvas, tablas y eventos de los botones
+index.html         estructura de la pagina y de los paneles
+estilos.css        presentacion: colores, tablas y disposicion
+algoritmo.js       grafo, generacion del DAG y algoritmo de Dijkstra
+interfaz.js        dibujo en el canvas, tablas y eventos de los botones
+
+verificacion.html  comprueba el programa; se abre igual, con doble clic
+bateria.js         las comprobaciones que ejecuta esa pagina
 
 No se utiliza ninguna libreria externa. Todo el codigo es del grupo.
+
+COMO COMPROBAR QUE EL RESULTADO ES CORRECTO
+-------------------------------------------
+Abrir "verificacion.html" y pulsar "Ejecutar la verificacion". En un par de
+segundos genera 3000 grafos, les corre el algoritmo y contrasta el resultado
+contra dos metodos independientes: una segunda implementacion que resuelve el
+mismo problema por otra via, y una enumeracion que recorre todos los caminos
+uno por uno. Al final informa cuantas discrepancias encontro.
+
+Usa el mismo algoritmo.js que la aplicacion y una semilla fija, asi que da
+siempre los mismos numeros, que son los que aparecen en el informe.
 
 COMO USARLO
 -----------
 1. Indicar el numero de vertices n (entre 7 y 16) y pulsar
    "Generar aleatorio", o "Crear vacio (manual)" para armarlo a mano.
    Tambien hay un boton "Cargar ejemplo de la Lectura 5".
+   El generador respeta tres reglas pedidas por el docente: ningun vertice
+   recibe mas de 3 flechas ni emite mas de 3, de todo vertice sale al menos
+   una flecha salvo el de llegada, y los pesos nunca quedan tapados por un
+   vertice ni por otra etiqueta.
 2. En modo manual el grafo se arma con el raton, directamente sobre el dibujo:
      - crear una arista: clic en un vertice y luego en otro. Aparece una
        casilla para el peso; Enter confirma y Escape cancela.
@@ -33,7 +51,8 @@ COMO USARLO
      - mover un vertice: arrastrarlo. El boton "Reordenar vertices" los
        vuelve a acomodar por niveles.
    El programa rechaza lazos, pesos no positivos, aristas repetidas y
-   cualquier arista que formaria un ciclo.
+   cualquier arista que formaria un ciclo. En el modo manual el grafo lo
+   define usted, asi que el tope de 3 no se impone aqui.
 3. Elegir el vertice origen y el vertice destino. Los destinos marcados
    con un punto son los alcanzables desde el origen elegido.
 4. Pulsar "Iniciar" y avanzar con "Siguiente" y "Anterior", o con las

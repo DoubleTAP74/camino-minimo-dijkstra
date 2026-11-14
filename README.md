@@ -1,41 +1,55 @@
-# Problema del camino mínimo — Algoritmo de Dijkstra
+# Camino minimo - Algoritmo de Dijkstra
 
-Proyecto del curso **1AMA0726 Matemática Computacional** — Universidad Peruana de
-Ciencias Aplicadas. Caso 2: problema del camino mínimo.
+Trabajo del curso de Matematica Computacional (1AMA0726) de la UPC.
+Seccion SW15401, Grupo 3.
 
-**Aplicación en línea:** https://doubletap74.github.io/camino-minimo-dijkstra/
+Pagina publicada: https://doubletap74.github.io/camino-minimo-dijkstra/
 
-## Qué hace
+## Que hace
 
-Aplicación web interactiva que permite construir un grafo dirigido y sin ciclos de
-*n* vértices (7 ≤ *n* ≤ 16), de forma manual o aleatoria, y ejecutar sobre él el
-algoritmo de Dijkstra paso a paso.
+Una pagina web para resolver el problema del camino minimo con el algoritmo
+de Dijkstra, paso a paso y sobre un grafo dibujado.
 
-- Validación de *n* en el rango 7 a 16.
-- Generación aleatoria mediante un orden topológico oculto, que garantiza la ausencia
-  de ciclos por construcción.
-- Generación manual con verificación de lazos, pesos no positivos, aristas repetidas y
-  aristas que cerrarían un ciclo.
-- Matriz de adyacencia y representación gráfica etiquetada.
-- Ejecución paso a paso con la notación de etiquetas `[d, V]ⁿ` del curso, etiquetando
-  todos los vértices.
-- Distancia mínima y camino resaltado sobre el grafo.
-- Botón para cargar el ejemplo resuelto de la Lectura 5 del curso.
+- Se pide el numero de vertices n, entre 7 y 16.
+- El grafo se puede generar al azar o armar a mano con el raton.
+- Siempre es dirigido y sin ciclos.
+- Se elige un vertice de origen y uno de destino.
+- El algoritmo avanza iteracion por iteracion, con las etiquetas [d, V]^n.
+- Al final da la distancia minima, cuantos caminos minimos hay y la
+  secuencia de cada uno, y los resalta todos sobre el grafo.
 
-## Tecnologías
+Hay un boton que carga el ejemplo resuelto de la Lectura 5 del curso, que
+tiene dos caminos minimos.
 
-HTML5, CSS3, JavaScript y la Canvas API. **Sin librerías externas:** todo el código es
-del grupo, incluido el algoritmo y el dibujo del grafo.
+## Como se usa
+
+Entrar al enlace de arriba, o bajar los archivos y abrir index.html con
+doble clic. No hay que instalar nada.
 
 ## Archivos
 
-| Archivo | Contenido |
+| Archivo | Que tiene |
 |---|---|
-| `index.html` | Estructura de la página y de los paneles |
-| `estilos.css` | Presentación: colores, tablas y disposición |
-| `algoritmo.js` | Grafo, generación del DAG y algoritmo de Dijkstra |
-| `interfaz.js` | Dibujo en el canvas, tablas y eventos de los botones |
+| index.html | la pagina y los tres paneles |
+| estilos.css | colores, tablas y disposicion |
+| algoritmo.js | el grafo, la generacion y el algoritmo de Dijkstra |
+| interfaz.js | el dibujo en el canvas, las tablas y los botones |
+| verificacion.html | comprueba que el resultado sea correcto |
+| bateria.js | las comprobaciones que ejecuta esa pagina |
 
-## Ejecución local
+No se usa ninguna libreria externa. Solo HTML, CSS y JavaScript.
 
-No requiere instalar nada: basta con abrir `index.html` en cualquier navegador.
+## Comprobar que esta bien
+
+Abrir verificacion.html y pulsar el boton. Genera 3000 grafos, les corre el
+algoritmo y compara el resultado contra dos metodos distintos: otra forma de
+calcular el camino minimo y una enumeracion que recorre todos los caminos uno
+por uno. Tarda un par de segundos y dice cuantas diferencias encontro.
+
+## Integrantes
+
+- Fernandez Salas, Eduar
+- Galvez Molero, Octavio Jesus
+- Jimenez Suarez, Wilmer Edwin
+- Lopez Pena, Leonardo Natanael
+- Maldonado Galloso, Sebastian Jhulino

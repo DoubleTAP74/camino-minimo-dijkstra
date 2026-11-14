@@ -116,7 +116,33 @@ function calcularPosiciones(g) {
   const ancho = lienzo.clientWidth;
   const alto = lienzo.clientHeight;
   const margenX = 58, margenY = 46;
-  const pasoX = maxNivel === 0 ? 0 : (ancho - 2 * margenX) / maxNivel;
+
+  /* Caso aparte: el grafo vacio del modo manual. Sin aristas todos los
+     vertices quedan en el nivel 0, o sea apilados en una sola columna, y
+     resulta incomodo hacerles clic. Mientras no haya ninguna arista los
+     repartimos en una cuadricula que ocupa el lienzo; en cuanto aparece la
+     primera arista ya mandan los niveles. */
+  if (maxNivel === 0) {
+    const columnas = Math.ceil(Math.sqrt(g.n * 1.8));
+    const filas = Math.ceil(g.n / columnas);
+    const separacion = 140;                                  // entre fila y fila
+    const altoBloque = (filas - 1) * separacion;             // lo centramos
+    const arriba = (alto - altoBloque) / 2;
+    const pos0 = new Array(g.n);
+    for (let i = 0; i < g.n; i++) {
+      const c = i % columnas, f = Math.floor(i / columnas);
+      pos0[i] = {
+        x: margenX + (ancho - 2 * margenX) * (columnas === 1 ? 0.5 : c / (columnas - 1)),
+        y: arriba + f * separacion
+      };
+    }
+    for (let i = 0; i < g.n; i++) {
+      if (posiciones[i] && posiciones[i].fijo) pos0[i] = posiciones[i];
+    }
+    return pos0;
+  }
+
+  const pasoX = (ancho - 2 * margenX) / maxNivel;
 
   const pos = new Array(g.n);
   for (let c = 0; c <= maxNivel; c++) {
@@ -171,7 +197,25 @@ function dibujar() {
     return;
   }
 
+  /* Antes de nada reservamos el espacio que van a ocupar los vertices y sus
+     etiquetas [d, V]n. Asi el peso de una arista nunca se dibuja encima de un
+     circulo ni de una etiqueta: el docente pidio en la revision que todos los
+     datos se vean, que ninguno quede tapado. */
   etiquetasColocadas = [];
+  if (grafo !== null) {
+    const pasoActual = indicePaso >= 0 ? pasos[indicePaso] : null;
+    for (let i = 0; i < grafo.n; i++) {
+      const p = posiciones[i];
+      etiquetasColocadas.push({ x: p.x - RADIO, y: p.y - RADIO, w: 2 * RADIO, h: 2 * RADIO });
+      if (pasoActual !== null && pasoActual.etiquetas[i] !== null) {
+        const e = pasoActual.etiquetas[i];
+        const texto = "[" + e.d + ", " + (e.pred === null ? "-" : nombre(e.pred)) + "]" + e.iter;
+        ctx.font = "bold 11.5px 'Consolas', monospace";
+        const ancho = ctx.measureText(texto).width + 8;
+        etiquetasColocadas.push({ x: p.x - ancho / 2, y: p.y - RADIO - 20, w: ancho, h: 17 });
+      }
+    }
+  }
 
   const paso = indicePaso >= 0 ? pasos[indicePaso] : null;
 
@@ -283,16 +327,27 @@ function colocarPeso(x1, y1, x2, y2, peso, color) {
 
   const ancho = ctx.measureText(texto).width + 7;
   const alto = 15;
-  const posibles = [0.42, 0.33, 0.52, 0.25, 0.62, 0.72];
+
+  /* Se prueban varias posiciones a lo largo de la arista y, si todas chocan,
+     tambien algunas separadas perpendicularmente a ella. Se toma la primera
+     que quede libre; asi el numero no se encima con otro ni con un vertice. */
+  const largoX = x2 - x1, largoY = y2 - y1;
+  const largo = Math.hypot(largoX, largoY) || 1;
+  const perpX = -largoY / largo, perpY = largoX / largo;   // vector perpendicular unitario
+
+  const candidatos = [];
+  for (const t of [0.42, 0.33, 0.52, 0.25, 0.62, 0.72]) candidatos.push([t, 0]);
+  for (const t of [0.42, 0.33, 0.52]) { candidatos.push([t, 13]); candidatos.push([t, -13]); }
 
   let elegido = null;
-  for (const t of posibles) {
-    const cx = x1 + (x2 - x1) * t, cy = y1 + (y2 - y1) * t;
+  for (const c of candidatos) {
+    const cx = x1 + largoX * c[0] + perpX * c[1];
+    const cy = y1 + largoY * c[0] + perpY * c[1];
     const r = { x: cx - ancho / 2, y: cy - alto / 2, w: ancho, h: alto };
     if (!chocaConAlguna(r)) { elegido = { cx: cx, cy: cy, r: r }; break; }
   }
   if (elegido === null) {
-    const cx = x1 + (x2 - x1) * 0.42, cy = y1 + (y2 - y1) * 0.42;
+    const cx = x1 + largoX * 0.42, cy = y1 + largoY * 0.42;
     elegido = { cx: cx, cy: cy, r: { x: cx - ancho / 2, y: cy - alto / 2, w: ancho, h: alto } };
   }
   etiquetasColocadas.push(elegido.r);
